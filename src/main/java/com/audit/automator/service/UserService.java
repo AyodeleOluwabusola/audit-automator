@@ -2,17 +2,23 @@ package com.audit.automator.service;
 
 import com.audit.automator.entities.AuditUser;
 import com.audit.automator.entities.Client;
+import com.audit.automator.enums.ResponseCodeEnum;
 import com.audit.automator.repository.DataRepository;
 import com.audit.automator.pojo.AddClientRequest;
 import com.audit.automator.pojo.UserCreationRequest;
+import com.audit.automator.response.CreationRequestResponse;
 import com.audit.automator.utils.ProxyUtil;
+import lombok.extern.log4j.Log4j;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
-@Slf4j
 public class UserService {
+
+    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
 
     DataRepository dataRepository;
     ProxyUtil proxyUtil;
@@ -23,7 +29,7 @@ public class UserService {
         this.proxyUtil = proxyUtil;
     }
 
-    public void createUser(UserCreationRequest request) {
+    public CreationRequestResponse createUser(UserCreationRequest request) {
         AuditUser auditUser = new AuditUser();
         auditUser.setFirstName(request.getFirstName());
         auditUser.setEmailAddress(request.getEmail());
@@ -41,9 +47,16 @@ public class UserService {
         proxyUtil.executeWithNewTransaction(() -> {
             dataRepository.create(auditUser);
         });
+
+        CreationRequestResponse response =  new CreationRequestResponse();
+        response.setName(request.getFirmName());
+        response.setCode(ResponseCodeEnum.SUCCESS.getCode());
+        response.setDescription(ResponseCodeEnum.SUCCESS.getDescription());
+
+        return response;
     }
 
-    public void addClient(AddClientRequest request) {
+    public CreationRequestResponse addClient(AddClientRequest request) {
 
         System.out.println("ADD CLIENT");
         Client client = new Client();
@@ -65,10 +78,18 @@ public class UserService {
         client.setSendEmailToClient(request.getSendEmailToClient());
         client.setAuditUserFk(request.getAuditUserFk());
 
+        logger.debug("CREATING CLIENT");
+
         proxyUtil.executeWithNewTransaction(() -> {
             dataRepository.create(client);
         });
 
+        CreationRequestResponse response =  new CreationRequestResponse();
+        response.setName(request.getFirstName());
+        response.setCode(ResponseCodeEnum.SUCCESS.getCode());
+        response.setDescription(ResponseCodeEnum.SUCCESS.getDescription());
+
+        return response;
     }
 }
 

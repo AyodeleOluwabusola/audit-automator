@@ -1,5 +1,6 @@
 package com.audit.automator.repository;
 
+import lombok.extern.log4j.Log4j;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,7 +16,6 @@ import java.util.Iterator;
 import java.util.Map;
 
 @Repository
-@Slf4j
 public class DataRepository{
 
     protected static final Logger logger = LoggerFactory.getLogger(DataRepository.class);
@@ -32,7 +32,7 @@ public class DataRepository{
 
 
     public Object create(Object entity) {
-        log.debug("CREATING {}", entity);
+        logger.debug("CREATING {}", entity);
         entityManager.getTransaction().begin();
         entityManager.persist(entity);
         entityManager.getTransaction().commit();
