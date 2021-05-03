@@ -3,7 +3,6 @@ package com.audit.automator.entities;
 import lombok.Getter;
 import lombok.Setter;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.persistence.Column;
 import javax.persistence.MappedSuperclass;
@@ -24,8 +23,6 @@ import java.util.Date;
 @Setter
 @MappedSuperclass
 public abstract class AbstractBasePkEntity<T> implements Serializable, Comparable<AbstractBasePkEntity<T>> {
-
-    private static final Logger logger = LoggerFactory.getLogger(AbstractBasePkEntity.class);
 
     /**
      *

@@ -1,9 +1,11 @@
 package com.audit.automator.repository;
 
-import lombok.extern.log4j.Log4j;
+import com.audit.automator.entities.Configuration;
+import com.audit.automator.enums.ConfigEnum;
+import com.audit.automator.utils.ProxyUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import javax.annotation.PostConstruct;
@@ -11,18 +13,23 @@ import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.LockModeType;
 import javax.persistence.Persistence;
+import javax.persistence.PersistenceException;
+import javax.persistence.Query;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 @Repository
+@Slf4j
 public class DataRepository{
-
-    protected static final Logger logger = LoggerFactory.getLogger(DataRepository.class);
 
     private static EntityManagerFactory emf;
 
     private EntityManager entityManager;
+
+    @Autowired
+    private ProxyUtil proxyUtil;
 
     @PostConstruct
     public void init() {
@@ -31,8 +38,70 @@ public class DataRepository{
     }
 
 
+
+
+    public String
+    getConfigValue(ConfigEnum configEnum) throws PersistenceException, IllegalStateException {
+        return getConfigValue(configEnum.getName(), configEnum.getValue(), configEnum.getDescription());
+    }
+
+
+    public String getConfigValue(String instanceSettingName, String defaultValue, String description) throws PersistenceException, SecurityException, IllegalStateException {
+
+        String name = instanceSettingName;
+
+        List<String> values = null;
+        try {
+
+            Query query = entityManager.createQuery("select c.value from Configuration c where c.name = :name");
+
+            query.setParameter("name", name);
+
+            values = query.getResultList();
+
+        } catch (PersistenceException | SecurityException | IllegalStateException e) {
+            log.error("Exception getting Settings value ", e);
+        }
+
+        String configValue = null;
+
+        if(values != null && !values.isEmpty()) {
+
+            if(values.get(0) == null) {
+                configValue = "";
+            } else {
+                configValue = values.get(0);
+            }
+        }
+
+        String val;
+        if (configValue != null) {
+            val = configValue.trim();
+        } else {
+            val = defaultValue;
+            log.debug("Retrieving {} setting with value {}", name, val);
+
+            Configuration configuration = new Configuration();
+
+            configuration.setName(name);
+            configuration.setValue(StringUtils.EMPTY.equals(defaultValue) ? " " : defaultValue); // oracle sees empty string as null and throws an exception since value field is not nullable
+            configuration.setDescription(description);
+
+            try {
+
+                final Configuration localConfiguration = configuration;
+
+                proxyUtil.executeWithNewTransaction(() -> create(localConfiguration));
+            } catch (PersistenceException | SecurityException | IllegalStateException e) {
+                log.error("Exception getting Settings value ", e);
+            }
+        }
+
+        return val;
+    }
+
+
     public Object create(Object entity) {
-        logger.debug("CREATING {}", entity);
         entityManager.getTransaction().begin();
         entityManager.persist(entity);
         entityManager.getTransaction().commit();
