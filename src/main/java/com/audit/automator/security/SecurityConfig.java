@@ -12,8 +12,8 @@ import org.springframework.security.config.annotation.web.configuration.WebSecur
 
 /**
  *
- * @author Marcel
- * @since Jun 17, 2017 - 11:37:14 PM
+ * @author Ayodele oluwabusola
+ * @since May 01, 2021 - 11:37:14 PM
  */
 @Configuration
 class SecurityConfig extends WebSecurityConfigurerAdapter {
