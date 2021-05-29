@@ -1,6 +1,8 @@
 package com.audit.automator.repository;
 
 import com.audit.automator.entities.Configuration;
+import com.audit.automator.entities.DocuSignLog;
+import com.audit.automator.entities.DocuSignLog_;
 import com.audit.automator.enums.ConfigEnum;
 import com.audit.automator.utils.ProxyUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +17,13 @@ import javax.persistence.LockModeType;
 import javax.persistence.Persistence;
 import javax.persistence.PersistenceException;
 import javax.persistence.Query;
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Predicate;
+import javax.persistence.criteria.Root;
+import javax.transaction.Transactional;
 import java.util.Collection;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +35,8 @@ public class DataRepository{
     private static EntityManagerFactory emf;
 
     private EntityManager entityManager;
+    protected CriteriaBuilder criteriaBuilder;
+
 
     @Autowired
     private ProxyUtil proxyUtil;
@@ -35,13 +45,13 @@ public class DataRepository{
     public void init() {
         emf = Persistence.createEntityManagerFactory("automatorService");
         entityManager = emf.createEntityManager();
+        criteriaBuilder = emf.getCriteriaBuilder();
     }
 
 
 
 
-    public String
-    getConfigValue(ConfigEnum configEnum) throws PersistenceException, IllegalStateException {
+    public String getConfigValue(ConfigEnum configEnum) throws PersistenceException, IllegalStateException {
         return getConfigValue(configEnum.getName(), configEnum.getValue(), configEnum.getDescription());
     }
 
@@ -100,7 +110,39 @@ public class DataRepository{
         return val;
     }
 
+    public Integer getConfigAsInteger(ConfigEnum configEnum) {
+        String configValue = this.getConfigValue(configEnum);
+        if (StringUtils.isBlank(configValue)) {
+            configValue = configEnum.getValue();
+        } else {
+            configValue = configValue.trim();
+        }
 
+        try {
+            return Integer.valueOf(configValue);
+        } catch (NumberFormatException var4) {
+            log.warn("Invalid setting Integer value : {}", configValue);
+            return Integer.valueOf(configEnum.getValue());
+        }
+    }
+
+
+    public List<DocuSignLog> getPendingDocuSignLogs(Integer size, long minPk, String status, Date createDateLimit) {
+        CriteriaQuery<DocuSignLog> criteriaQuery = criteriaBuilder.createQuery(DocuSignLog.class);
+        Root<DocuSignLog> root = criteriaQuery.from(DocuSignLog.class);
+        Predicate statusCondition = criteriaBuilder.equal(root.get(DocuSignLog_.status), status);
+        Predicate minPkCondition = criteriaBuilder.gt(root.get(DocuSignLog_.pk), minPk);
+        Predicate dateCondition = criteriaBuilder.lessThanOrEqualTo(root.get(DocuSignLog_.createDate), createDateLimit);
+
+        criteriaQuery.select(root);
+        criteriaQuery.where(criteriaBuilder.and(dateCondition, minPkCondition, statusCondition));
+
+        return entityManager.createQuery(criteriaQuery)
+                .setMaxResults(size)
+                .getResultList();
+    }
+
+    @Transactional
     public Object create(Object entity) {
         entityManager.getTransaction().begin();
         entityManager.persist(entity);

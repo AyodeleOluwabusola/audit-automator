@@ -8,10 +8,12 @@
         <class>com.audit.automator.entities.Client</class>
         <class>com.audit.automator.entities.AuditUser</class>
         <class>com.audit.automator.entities.Configuration</class>
+        <class>com.audit.automator.entities.DocuSignLog</class>
         <properties>
             <property name="hibernate.hbm2ddl.auto" value="update"/>
 <!--            <property name="hibernate.show_sql" value="false" />-->
             <property name="hibernate.archive.autodetection" value="class"/>
+            <property name="hibernate.connection.autocommit" value="false" />
             <property name="hibernate.transaction.jta.platform"
                       value="org.hibernate.service.jta.platform.internal.JBossStandAloneJtaPlatform"/>
             <property name="hibernate.connection.release_mode" value="after_transaction"/>

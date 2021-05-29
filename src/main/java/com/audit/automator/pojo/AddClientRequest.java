@@ -18,6 +18,8 @@ public class AddClientRequest {
     private String firmSecondAddress;
     private String country;
     private String city;
+    private String taxId;
+    private String bank;
     private String region;
     private String postalCode;
     private String signerEmail;

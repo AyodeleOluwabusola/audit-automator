@@ -1,17 +1,19 @@
 package com.audit.automator.docusign;
 
+import com.audit.automator.entities.DocuSignLog;
+import com.audit.automator.enums.DocuSignStatusEnum;
+import com.audit.automator.repository.DataRepository;
+import com.audit.automator.utils.ProxyUtil;
 import com.docusign.esign.api.EnvelopesApi;
-import com.docusign.esign.client.ApiClient;
-import com.docusign.esign.client.ApiException;
-import com.docusign.esign.client.Configuration;
-import com.docusign.esign.client.auth.OAuth.OAuthToken;
-import com.docusign.esign.client.auth.OAuth.UserInfo;
 import com.docusign.esign.model.Document;
 import com.docusign.esign.model.EnvelopeDefinition;
 import com.docusign.esign.model.EnvelopeSummary;
 import com.docusign.esign.model.Recipients;
 import com.docusign.esign.model.Signer;
 import com.migcomponents.migbase64.Base64;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -20,12 +22,20 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
+@Component
 public class DocuSignEmailSender {
 
     private static final String SignTest1File = "/docusign/World_Wide_Corp_fields.pdf";
     private static final String BaseUrl = "https://demo.docusign.net/restapi";
 
-    public static boolean sendEmail(DocusignRequest request){
+    @Autowired
+    DataRepository dataRepository;
+
+    @Autowired
+    ProxyUtil proxyUtil;
+
+    public boolean sendEmail(DocusignRequest request, Long clientPk){
 
         byte[] fileBytes = null;
         try {
@@ -65,31 +75,39 @@ public class DocuSignEmailSender {
         envDef.getRecipients().getSigners().add(signer);
 
         // send the envelope (otherwise it will be "created" in the Draft folder
-        envDef.setStatus("sent");
+        envDef.setStatus(DocuSignStatusEnum.SENT.getName());
 
-        ApiClient apiClient = new ApiClient(BaseUrl);
         try {
-            OAuthToken oAuthToken = apiClient.requestJWTUserToken(request.getClientId(), request.getUserId(), request.getScopes(), request.getPrivateKey(),
-                    3600);
-            // now that the API client has an OAuth token, let's use it in all
-            // DocuSign APIs
-            apiClient.setAccessToken(oAuthToken.getAccessToken(), oAuthToken.getExpiresIn());
-            UserInfo userInfo = apiClient.getUserInfo(oAuthToken.getAccessToken());
-
-            apiClient.setBasePath(userInfo.getAccounts().get(0).getBaseUri() + "/restapi");
-            Configuration.setDefaultApiClient(apiClient);
-            String accountId = userInfo.getAccounts().get(0).getAccountId();
-
+            String accountId = new DocuSignAuth(dataRepository).getDocuSignAccountId();
             EnvelopesApi envelopesApi = new EnvelopesApi();
 
             EnvelopeSummary envelopeSummary = envelopesApi.createEnvelope(accountId, envDef);
+            System.out.println("ENVELOPE SUMMARY IS {}"+ envelopeSummary);
+            System.out.println("ENVELOPE ID IS {}"+ envelopeSummary.getEnvelopeId());
 
-            if(envelopeSummary != null){
-                return envelopeSummary.getStatus().equals("sent");
+            byte[] envelope = envelopesApi.getDocument(accountId, envelopeSummary.getEnvelopeId(), "combined");
+
+            System.out.println("ENVELOPE SIZE {}"+ envelope.length);
+            if(envelopeSummary != null) {
+                DocuSignLog docuSignLog = new DocuSignLog();
+                docuSignLog.setEnvelopeId(envelopeSummary.getEnvelopeId());
+                if (envelopeSummary.getErrorDetails() != null) {
+                    docuSignLog.setErrorCode(envelopeSummary.getErrorDetails().getErrorCode());
+                    docuSignLog.setMessage(envelopeSummary.getErrorDetails().getMessage());
+                }
+                docuSignLog.setUri(envelopeSummary.getUri());
+                docuSignLog.setStatusDateTime(envelopeSummary.getStatusDateTime());
+                docuSignLog.setStatus(envelopeSummary.getStatus().toUpperCase());
+                docuSignLog.setClientPk(clientPk);
+                docuSignLog.setDocumentData(envelope);
+
+                proxyUtil.executeWithNewTransaction(()-> dataRepository.create(docuSignLog));
+
+                if (envelopeSummary != null) {
+                    return envelopeSummary.getStatus().equals("sent");
+                }
             }
             return false;
-        } catch (ApiException ex) {
-            ex.printStackTrace();
         } catch (Exception e) {
             e.printStackTrace();
         }

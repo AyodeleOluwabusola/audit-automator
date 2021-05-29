@@ -53,6 +53,12 @@ public class Client extends BaseLongPkEntity{
     @Column(name = "PHONE")
     private String phone;
 
+    @Column(name = "TAX_ID")
+    private String taxId;
+
+    @Column(name = "BANK")
+    private String bank;
+
     @Column(name = "LANGUAGE")
     private String language;
 
